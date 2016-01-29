@@ -265,6 +265,7 @@ class Invoice
     {
         return [
             'InvoiceId'                => $this->invoiceId,
+            'Culture'                  => $this->culture,
             'StateCode'                => $this->stateCode,
             'StateDescription'         => $this->getStateDescription(),
             'RequestDate'              => $this->requestDate->format('c'),

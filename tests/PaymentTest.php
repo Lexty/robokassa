@@ -28,13 +28,19 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @param string $return
+     * @param string $method
      *
      * @return \PHPUnit_Framework_MockObject_MockObject|Payment
      */
-    private function getPaymentMock($return)
+    private function getPaymentMock($return, $method = 'sendRequest')
     {
-        $paymentMock = $this->getMock(get_class($this->createPayment()), ['sendRequest'], [], '', false);
-        $paymentMock->expects($this->once())->method('sendRequest')->will($this->returnValue($return));
+        $paymentMock = $this->getMock(get_class($this->createPayment()), [$method], [], '', false);
+        $paymentMock->expects($this->once())->method($method)->will($this->returnValue($return));
+        $paymentMock
+            ->setMerchantLogin($this->login)
+            ->setPaymentPassword($this->pass1)
+            ->setValidationPassword($this->pass2)
+            ->setIsTest($this->isTest);
 
         return $paymentMock;
     }
@@ -89,7 +95,7 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
      * @test
      * @covers Payment::getPaymentSignature()
      */
-    public function get_correct_payment_signatures()
+    public function get_payment_signatures()
     {
         $this->assertEquals("login:123.00::{$this->pass1}",
             $this->createPayment()
@@ -116,6 +122,23 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
                 ->setCurrency('USD')
                 ->setCustomParam('surname', 'Smith')
                 ->setCustomParam('name', 'John')
+                ->getPaymentSignature()
+        );
+    }
+
+    /**
+     * @test
+     * @covers Payment::getPaymentSignature()
+     */
+    public function get_payment_signature_with_autoset_shop_comission_custom_param()
+    {
+        $payment = $this->getPaymentMock(143, 'calculateShopSum');
+
+        $this->assertEquals("login:143::{$this->pass1}:Shp__shop_commission=1",
+            $payment
+                ->setSum(123)
+                ->setPaymentMethod('BankCard')
+                ->setShopCommission(true)
                 ->getPaymentSignature()
         );
     }
@@ -154,6 +177,26 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
                 ->setIsTest(true)
                 ->setCustomParam('foo', 'foo value')
                 ->setCustomParam('bar', 'bar value')
+                ->getPaymentUrl());
+    }
+
+    /**
+     * @test
+     * @covers Payment::getPaymentUrl()
+     */
+    public function get_payment_url_with_autoset_shop_comission_custom_param()
+    {
+        $prefix = $this->getPropertyValue($this->createPayment(), 'customParamsPrefix');
+        $key = $this->getPropertyValue($this->createPayment(), 'shopComissionCustomParamKey');
+
+        $this->assertEquals(
+            'https://auth.robokassa.ru/Merchant/Index.aspx?MerchantLogin=login&Description=Payment+description' .
+            "&SignatureValue=b6c901935e83c3198caeee0ac8006679&OutSum=143&Culture=ru&{$prefix}{$key}=1",
+            $this->getPaymentMock(143, 'calculateShopSum')
+                ->setSum(150)
+                ->setDescription('Payment description')
+                ->setIsTest(false)
+                ->setShopCommission(true)
                 ->getPaymentUrl());
     }
 
@@ -451,8 +494,7 @@ XML;
                 'Items'       => [
                     ['Label' => 'BarLabel', 'Name' => 'BarName'],
                 ],
-            ],
-            [
+            ], [
                 'Code'        => 'baz',
                 'Description' => 'Baz description',
                 'Items'       => [
@@ -513,5 +555,186 @@ XML;
 XML;
 
         $this->assertEquals($expected, $this->getPaymentMock($response)->getPaymentMethodGroups());
+    }
+
+    /**
+     * @test
+     * @covers Payment::getRates()
+     */
+    public function api_request_get_rates()
+    {
+        $expected = [
+            [
+                'Code'        => 'FooCode',
+                'Description' => 'Foo description',
+                'Items'       => [
+                    [
+                        'Label' => 'BarLabel',
+                        'Name'  => 'BarName',
+                        'Rate'  => 165,
+                    ],
+                ],
+            ], [
+                'Code'        => 'BazCode',
+                'Description' => 'Baz description',
+                'Items'       => [
+                    [
+                        'Label' => 'ButLabel',
+                        'Name'  => 'ButName',
+                        'Rate'  => 157.34,
+                    ],
+                    [
+                        'Label' => 'QuzLabel',
+                        'Name'  => 'QuzName',
+                        'Rate'  => 153.05,
+                    ],
+                ],
+            ],
+        ];
+
+        $response = <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<RatesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>0</Code>
+  </Result>
+  <Groups>
+    <Group Code="{$expected[0]['Code']}" Description="{$expected[0]['Description']}">
+      <Items>
+        <Currency Label="{$expected[0]['Items'][0]['Label']}" Name="{$expected[0]['Items'][0]['Name']}">
+          <Rate IncSum="{$expected[0]['Items'][0]['Rate']}" />
+        </Currency>
+      </Items>
+    </Group>
+    <Group Code="{$expected[1]['Code']}" Description="{$expected[1]['Description']}">
+      <Items>
+        <Currency Label="{$expected[1]['Items'][0]['Label']}" Name="{$expected[1]['Items'][0]['Name']}">
+          <Rate IncSum="{$expected[1]['Items'][0]['Rate']}" />
+        </Currency>
+        <Currency Label="{$expected[1]['Items'][1]['Label']}" Name="{$expected[1]['Items'][1]['Name']}">
+          <Rate IncSum="{$expected[1]['Items'][1]['Rate']}" />
+        </Currency>
+      </Items>
+    </Group>
+  </Groups>
+</RatesList>
+XML;
+
+        $this->assertEquals($expected, $this->getPaymentMock($response)->getRates(150));
+    }
+
+    /**
+     * @test
+     * @covers Payment::calculateShopSum()
+     */
+    public function api_request_calculate_shop_sum()
+    {
+        $expected = 143.64;
+
+        $response = <<< XML
+<?xml version="1.0" encoding="UTF-8"?>
+<CalcSummsResponseData xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>0</Code>
+  </Result>
+  <OutSum>{$expected}</OutSum>
+</CalcSummsResponseData>
+XML;
+
+        $this->assertEquals($expected, $this->getPaymentMock($response)->calculateShopSum(150, 'BankCard'));
+    }
+
+    /**
+     * @test
+     * @covers Payment::calculateClientSum()
+     */
+    public function api_request_calculate_client_sum()
+    {
+        $expected = 157.36;
+
+        $response = <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<RatesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>0</Code>
+  </Result>
+  <Groups>
+    <Group Code="FooCode" Description="Foo description">
+      <Items>
+        <Currency Label="BankCard" Name="Card Bank">
+          <Rate IncSum="{$expected}" />
+        </Currency>
+      </Items>
+    </Group>
+  </Groups>
+</RatesList>
+XML;
+
+        $this->assertEquals($expected, $this->getPaymentMock($response)->calculateClientSum(150, 'BankCard'));
+    }
+
+    /**
+     * @test
+     * @covers Payment::getInvoice()
+     */
+    public function api_request_get_invoice()
+    {
+        $expected = [
+            'InvoiceId'                => 123,
+            'Culture'                  => Payment::CULTURE_EN,
+            'StateCode'                => Invoice::STATE_COMPLETED,
+            'StateDescription'         => 'Operation completed successfully.',
+            'RequestDate'              => '2016-01-29T15:18:20+00:00',
+            'StateDate'                => '2016-01-29T15:18:20+00:00',
+            'ClientSum'                => 158.0,
+            'ClientAccount'            => 'string',
+            'PaymentMethod'            => 'BankCard',
+            'PaymentMethodCode'        => 'string',
+            'PaymentMethodDescription' => 'string',
+            'Currency'                 => 'string',
+            'ShopSum'                  => 150.0,
+        ];
+
+        $response = <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<OperationStateResponse xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>0</Code>
+  </Result>
+  <State>
+    <Code>{$expected['StateCode']}</Code>
+    <RequestDate>{$expected['RequestDate']}</RequestDate>
+    <StateDate>{$expected['StateDate']}</StateDate>
+  </State>
+  <Info>
+    <IncCurrLabel>{$expected['PaymentMethod']}</IncCurrLabel>
+    <IncSum>{$expected['ClientSum']}</IncSum>
+    <IncAccount>{$expected['ClientAccount']}</IncAccount>
+    <PaymentMethod>
+      <Code>{$expected['PaymentMethodCode']}</Code>
+      <Description>{$expected['PaymentMethodDescription']}</Description>
+    </PaymentMethod>
+    <OutCurrLabel>{$expected['Currency']}</OutCurrLabel>
+    <OutSum>{$expected['ShopSum']}</OutSum>
+  </Info>
+</OperationStateResponse>
+XML;
+
+        $invoice = $this->getPaymentMock($response)->setCulture(Payment::CULTURE_EN)->getInvoice($expected['InvoiceId']);
+
+        $this->assertEquals($expected['InvoiceId'], $invoice->getInvoiceId());
+        $this->assertEquals($expected['Culture'], $invoice->getCulture());
+        $this->assertEquals($expected['StateCode'], $invoice->getStateCode());
+        $this->assertEquals($expected['RequestDate'], $invoice->getRequestDate()->format('c'));
+        $this->assertEquals($expected['StateDate'], $invoice->getStateDate()->format('c'));
+        $this->assertEquals($expected['ClientSum'], $invoice->getClientSum());
+        $this->assertEquals($expected['ClientAccount'], $invoice->getClientAccount());
+        $this->assertEquals($expected['PaymentMethod'], $invoice->getPaymentMethod());
+        $this->assertEquals($expected['PaymentMethodCode'], $invoice->getPaymentMethodCode());
+        $this->assertEquals($expected['PaymentMethodDescription'], $invoice->getPaymentMethodDescription());
+        $this->assertEquals($expected['Currency'], $invoice->getCurrency());
+        $this->assertEquals($expected['ShopSum'], $invoice->getShopSum());
+        $this->assertEquals($expected['StateDescription'], $invoice->getStateDescription());
+        $this->assertEquals($expected, $invoice->asArray());
     }
 }
