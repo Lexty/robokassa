@@ -428,17 +428,7 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
      */
     public function api_request_response_error_exception()
     {
-        $response = <<< XML
-<?xml version="1.0" encoding="utf-8" ?>
-<CurrenciesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
-  <Result>
-    <Code>123</Code>
-    <Description>Error description.</Description>
-  </Result>
-</CurrenciesList>
-XML;
-
-        $this->getPaymentMock($response)->getCurrencies();
+        $this->getPaymentMock($this->getErrorResponse(123, 'Error description.'))->getCurrencies();
     }
 
     /**
@@ -448,17 +438,7 @@ XML;
      */
     public function api_request_invoice_not_found_exception()
     {
-        $response = <<< XML
-<?xml version="1.0" encoding="utf-8" ?>
-<CurrenciesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
-  <Result>
-    <Code>3</Code>
-    <Description></Description>
-  </Result>
-</CurrenciesList>
-XML;
-
-        $this->getPaymentMock($response)->getCurrencies();
+        $this->getPaymentMock($this->getErrorResponse(3))->getCurrencies();
     }
 
     /**
@@ -468,17 +448,7 @@ XML;
      */
     public function api_request_calculate_sum_error_exception()
     {
-        $response = <<< XML
-<?xml version="1.0" encoding="utf-8" ?>
-<CurrenciesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
-  <Result>
-    <Code>5</Code>
-    <Description></Description>
-  </Result>
-</CurrenciesList>
-XML;
-
-        $this->getPaymentMock($response)->getCurrencies();
+        $this->getPaymentMock($this->getErrorResponse(5))->getCurrencies();
     }
 
     /**
@@ -504,27 +474,7 @@ XML;
             ],
         ];
 
-        $response = <<< XML
-<?xml version="1.0" encoding="utf-8" ?>
-<CurrenciesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
-  <Result>
-    <Code>0</Code>
-  </Result>
-  <Groups>
-    <Group Code="{$expected[0]['Code']}" Description="{$expected[0]['Description']}">
-      <Items>
-        <Currency Label="{$expected[0]['Items'][0]['Label']}" Name="{$expected[0]['Items'][0]['Name']}" />
-      </Items>
-    </Group>
-    <Group Code="{$expected[1]['Code']}" Description="{$expected[1]['Description']}">
-      <Items>
-        <Currency Label="{$expected[1]['Items'][0]['Label']}" Name="{$expected[1]['Items'][0]['Name']}" />
-        <Currency Label="{$expected[1]['Items'][1]['Label']}" Name="{$expected[1]['Items'][1]['Name']}" />
-      </Items>
-    </Group>
-  </Groups>
-</CurrenciesList>
-XML;
+        $response = $this->getCurrenciesResponse($expected);
 
         $this->assertEquals($expected, $this->getPaymentMock($response)->getCurrencies());
     }
@@ -539,20 +489,8 @@ XML;
             'FooCode' => 'Foo description',
             'BarCode' => 'Bar description',
         ];
-        $keys = array_keys($expected);
 
-        $response = <<< XML
-<?xml version="1.0" encoding="utf-8" ?>
-<PaymentMethodsList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
-  <Result>
-    <Code>0</Code>
-  </Result>
-  <Methods>
-    <Method Code="{$keys[0]}" Description="{$expected['FooCode']}" />
-    <Method Code="{$keys[1]}" Description="{$expected['BarCode']}" />
-  </Methods>
-</PaymentMethodsList>
-XML;
+        $response = $this->getPaymentMethodGroupsResponse($expected);
 
         $this->assertEquals($expected, $this->getPaymentMock($response)->getPaymentMethodGroups());
     }
@@ -580,33 +518,7 @@ XML;
             ],
         ];
 
-        $response = <<< XML
-<?xml version="1.0" encoding="utf-8" ?>
-<RatesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
-  <Result>
-    <Code>0</Code>
-  </Result>
-  <Groups>
-    <Group Code="{$expected[0]['Code']}" Description="{$expected[0]['Description']}">
-      <Items>
-        <Currency Label="{$expected[0]['Items'][0]['Label']}" Name="{$expected[0]['Items'][0]['Name']}">
-          <Rate IncSum="{$expected[0]['Items'][0]['ClientSum']}" />
-        </Currency>
-      </Items>
-    </Group>
-    <Group Code="{$expected[1]['Code']}" Description="{$expected[1]['Description']}">
-      <Items>
-        <Currency Label="{$expected[1]['Items'][0]['Label']}" Name="{$expected[1]['Items'][0]['Name']}">
-          <Rate IncSum="{$expected[1]['Items'][0]['ClientSum']}" />
-        </Currency>
-        <Currency Label="{$expected[1]['Items'][1]['Label']}" Name="{$expected[1]['Items'][1]['Name']}">
-          <Rate IncSum="{$expected[1]['Items'][1]['ClientSum']}" />
-        </Currency>
-      </Items>
-    </Group>
-  </Groups>
-</RatesList>
-XML;
+        $response = $this->getRatesResponse($expected);
 
         $this->assertEquals($expected, $this->getPaymentMock($response)->getRates(150));
     }
@@ -619,15 +531,7 @@ XML;
     {
         $expected = 143.64;
 
-        $response = <<< XML
-<?xml version="1.0" encoding="UTF-8"?>
-<CalcSummsResponseData xmlns="http://auth.robokassa.ru/Merchant/WebService/">
-  <Result>
-    <Code>0</Code>
-  </Result>
-  <OutSum>{$expected}</OutSum>
-</CalcSummsResponseData>
-XML;
+        $response = $this->getCalculateShopSumResponse($expected);
 
         $this->assertEquals($expected, $this->getPaymentMock($response)->calculateShopSum(150, 'BankCard'));
     }
@@ -640,23 +544,7 @@ XML;
     {
         $expected = 157.36;
 
-        $response = <<< XML
-<?xml version="1.0" encoding="utf-8" ?>
-<RatesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
-  <Result>
-    <Code>0</Code>
-  </Result>
-  <Groups>
-    <Group Code="FooCode" Description="Foo description">
-      <Items>
-        <Currency Label="BankCard" Name="Card Bank">
-          <Rate IncSum="{$expected}" />
-        </Currency>
-      </Items>
-    </Group>
-  </Groups>
-</RatesList>
-XML;
+        $response = $this->getCalculateClientSumResponse($expected);
 
         $this->assertEquals($expected, $this->getPaymentMock($response)->calculateClientSum(150, 'BankCard'));
     }
@@ -682,33 +570,9 @@ XML;
             'Currency'                 => 'string',
             'ShopSum'                  => 150.0,
         ];
-
-        $response = <<< XML
-<?xml version="1.0" encoding="utf-8" ?>
-<OperationStateResponse xmlns="http://auth.robokassa.ru/Merchant/WebService/">
-  <Result>
-    <Code>0</Code>
-  </Result>
-  <State>
-    <Code>{$expected['StateCode']}</Code>
-    <RequestDate>{$expected['RequestDate']}</RequestDate>
-    <StateDate>{$expected['StateDate']}</StateDate>
-  </State>
-  <Info>
-    <IncCurrLabel>{$expected['PaymentMethod']}</IncCurrLabel>
-    <IncSum>{$expected['ClientSum']}</IncSum>
-    <IncAccount>{$expected['ClientAccount']}</IncAccount>
-    <PaymentMethod>
-      <Code>{$expected['PaymentMethodCode']}</Code>
-      <Description>{$expected['PaymentMethodDescription']}</Description>
-    </PaymentMethod>
-    <OutCurrLabel>{$expected['Currency']}</OutCurrLabel>
-    <OutSum>{$expected['ShopSum']}</OutSum>
-  </Info>
-</OperationStateResponse>
-XML;
-
-        $invoice = $this->getPaymentMock($response)->setCulture(Payment::CULTURE_EN)->getInvoice($expected['InvoiceId']);
+        $invoice = $this->getPaymentMock($this->getInvoiceResponse($expected))
+            ->setCulture(Payment::CULTURE_EN)
+            ->getInvoice($expected['InvoiceId']);
 
         $this->assertEquals($expected['InvoiceId'], $invoice->getInvoiceId());
         $this->assertEquals($expected['Culture'], $invoice->getCulture());
@@ -724,5 +588,218 @@ XML;
         $this->assertEquals($expected['ShopSum'], $invoice->getShopSum());
         $this->assertEquals($expected['StateDescription'], $invoice->getStateDescription());
         $this->assertEquals($expected, $invoice->asArray());
+    }
+
+    /**
+     * @test
+     * @covers Payment::validateResult()
+     */
+    public function validate_result()
+    {
+        $data = [
+            'InvId'          => 123,
+            'OutSum'         => 150,
+            'SignatureValue' => '0109ea77984a645bf105f563abee3fe2',
+        ];
+
+        $response = $this->getInvoiceResponse([
+            'StateCode' => Invoice::STATE_COMPLETED,
+            'ShopSum'   => $data['OutSum'],
+        ]);
+
+        $this->assertTrue($this->getPaymentMock($response)->validateResult($data));
+    }
+
+    /**
+     * @test
+     * @covers Payment::validateResult()
+     */
+    public function validate_result_with_invoice_state_processing()
+    {
+        $data = [
+            'InvId'          => 123,
+            'OutSum'         => 150,
+            'SignatureValue' => '0109ea77984a645bf105f563abee3fe2',
+        ];
+
+        $response = $this->getInvoiceResponse([
+            'StateCode' => Invoice::STATE_PROCESSING,
+            'ShopSum'   => $data['OutSum'],
+        ]);
+
+        $this->assertFalse($this->getPaymentMock($response)->validateResult($data));
+    }
+
+    /**
+     * @test
+     * @covers Payment::getSuccessAnswer()
+     */
+    public function get_success_answer()
+    {
+        $this->assertEquals("OK123\n", $this->createPayment()->setInvoiceId(123)->getSuccessAnswer());
+    }
+
+    public function getErrorResponse($code, $description = '')
+    {
+        return <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<CurrenciesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>{$code}</Code>
+    <Description>{$description}</Description>
+  </Result>
+</CurrenciesList>
+XML;
+    }
+
+    public function getCurrenciesResponse($data)
+    {
+        return <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<CurrenciesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>0</Code>
+  </Result>
+  <Groups>
+    <Group Code="{$data[0]['Code']}" Description="{$data[0]['Description']}">
+      <Items>
+        <Currency Label="{$data[0]['Items'][0]['Label']}" Name="{$data[0]['Items'][0]['Name']}" />
+      </Items>
+    </Group>
+    <Group Code="{$data[1]['Code']}" Description="{$data[1]['Description']}">
+      <Items>
+        <Currency Label="{$data[1]['Items'][0]['Label']}" Name="{$data[1]['Items'][0]['Name']}" />
+        <Currency Label="{$data[1]['Items'][1]['Label']}" Name="{$data[1]['Items'][1]['Name']}" />
+      </Items>
+    </Group>
+  </Groups>
+</CurrenciesList>
+XML;
+    }
+
+    public function getPaymentMethodGroupsResponse($data)
+    {
+        $keys = array_keys($data);
+
+        return <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<PaymentMethodsList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>0</Code>
+  </Result>
+  <Methods>
+    <Method Code="{$keys[0]}" Description="{$data['FooCode']}" />
+    <Method Code="{$keys[1]}" Description="{$data['BarCode']}" />
+  </Methods>
+</PaymentMethodsList>
+XML;
+    }
+
+    public function getRatesResponse($data)
+    {
+        return <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<RatesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>0</Code>
+  </Result>
+  <Groups>
+    <Group Code="{$data[0]['Code']}" Description="{$data[0]['Description']}">
+      <Items>
+        <Currency Label="{$data[0]['Items'][0]['Label']}" Name="{$data[0]['Items'][0]['Name']}">
+          <Rate IncSum="{$data[0]['Items'][0]['ClientSum']}" />
+        </Currency>
+      </Items>
+    </Group>
+    <Group Code="{$data[1]['Code']}" Description="{$data[1]['Description']}">
+      <Items>
+        <Currency Label="{$data[1]['Items'][0]['Label']}" Name="{$data[1]['Items'][0]['Name']}">
+          <Rate IncSum="{$data[1]['Items'][0]['ClientSum']}" />
+        </Currency>
+        <Currency Label="{$data[1]['Items'][1]['Label']}" Name="{$data[1]['Items'][1]['Name']}">
+          <Rate IncSum="{$data[1]['Items'][1]['ClientSum']}" />
+        </Currency>
+      </Items>
+    </Group>
+  </Groups>
+</RatesList>
+XML;
+    }
+
+    private function getCalculateShopSumResponse($sum)
+    {
+        return <<< XML
+<?xml version="1.0" encoding="UTF-8"?>
+<CalcSummsResponseData xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>0</Code>
+  </Result>
+  <OutSum>{$sum}</OutSum>
+</CalcSummsResponseData>
+XML;
+    }
+
+    private function getCalculateClientSumResponse($sum)
+    {
+        return <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<RatesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>0</Code>
+  </Result>
+  <Groups>
+    <Group Code="FooCode" Description="Foo description">
+      <Items>
+        <Currency Label="BankCard" Name="Card Bank">
+          <Rate IncSum="{$sum}" />
+        </Currency>
+      </Items>
+    </Group>
+  </Groups>
+</RatesList>
+XML;
+    }
+
+    private function getInvoiceResponse($data)
+    {
+        $defaults = [
+            'StateCode'                => Invoice::STATE_COMPLETED,
+            'RequestDate'              => '2016-01-29T15:18:20+00:00',
+            'StateDate'                => '2016-01-29T15:18:20+00:00',
+            'ClientSum'                => 158.0,
+            'ClientAccount'            => 'string',
+            'PaymentMethod'            => 'BankCard',
+            'PaymentMethodCode'        => 'string',
+            'PaymentMethodDescription' => 'string',
+            'Currency'                 => 'string',
+            'ShopSum'                  => 150.0,
+        ];
+
+        $data = array_merge($defaults, $data);
+
+        return <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<OperationStateResponse xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>0</Code>
+  </Result>
+  <State>
+    <Code>{$data['StateCode']}</Code>
+    <RequestDate>{$data['RequestDate']}</RequestDate>
+    <StateDate>{$data['StateDate']}</StateDate>
+  </State>
+  <Info>
+    <IncCurrLabel>{$data['PaymentMethod']}</IncCurrLabel>
+    <IncSum>{$data['ClientSum']}</IncSum>
+    <IncAccount>{$data['ClientAccount']}</IncAccount>
+    <PaymentMethod>
+      <Code>{$data['PaymentMethodCode']}</Code>
+      <Description>{$data['PaymentMethodDescription']}</Description>
+    </PaymentMethod>
+    <OutCurrLabel>{$data['Currency']}</OutCurrLabel>
+    <OutSum>{$data['ShopSum']}</OutSum>
+  </Info>
+</OperationStateResponse>
+XML;
     }
 }
