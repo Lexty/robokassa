@@ -167,7 +167,7 @@ class Payment
 //    private $recurringBaseUrl = 'https://auth.robokassa.ru/Merchant/Recurring';
 
     private $customParamsPrefix = 'Shp_';
-    private $shopComissionCustomParamKey = '_shop_commission';
+    private $shopCommissionCustomParamKey = '_shop_commission';
 
     /**
      * Payment constructor.
@@ -251,10 +251,6 @@ class Payment
             $params['DefaultSum'] = $this->sum;
         } else {
             $params['OutSum'] = $this->getShopSum();
-        }
-
-        if ($this->shopCommission) {
-            $this->setCustomParam('_shop_commission', 1);
         }
 
         if ($this->invoiceId)          $params['InvId']             = $this->invoiceId;
@@ -479,6 +475,12 @@ class Payment
             $this->shopCommission     = $shopCommission;
             $this->isShopSumChanged   = true;
             $this->isClientSumChanged = true;
+
+            if ($shopCommission) {
+                $this->setCustomParam($this->shopCommissionCustomParamKey, 1);
+            } else {
+                $this->removeCustomParam($this->shopCommissionCustomParamKey);
+            }
         }
 
         return $this;
@@ -1047,7 +1049,7 @@ class Payment
         foreach ($data as $key => $value) {
             if (method_exists($this, 'set' . $key)) {
                 $this->{'set' . $key}($value);
-            } else if ($this->customParamsPrefix . $this->shopComissionCustomParamKey === $key) {
+            } else if ($this->customParamsPrefix . $this->shopCommissionCustomParamKey === $key) {
                 $this->setShopCommission($value);
             } else if (0 === strpos($key, $this->customParamsPrefix)) {
                 $this->setCustomParam(substr($key, 4), $value);
@@ -1193,7 +1195,7 @@ class Payment
     }
 
     /**
-     * Returns the sums with comission and some addition data.
+     * Returns the sums with commission and some addition data.
      *
      * @param float       $shopSum
      * @param string      $paymentMethod
@@ -1245,7 +1247,7 @@ class Payment
     }
 
     /**
-     * Returns the sum with comission for `$paymentMethod`.
+     * Returns the sum with commission for `$paymentMethod`.
      *
      * Helps calculate the amount receivable on the basis of ROBOKASSA
      * prevailing exchange rates from the amount payable by the user.
@@ -1277,7 +1279,7 @@ class Payment
     }
 
     /**
-     * Returns the sum without comission for `$paymentMethod`.
+     * Returns the sum without commission for `$paymentMethod`.
 
      * Helps calculate the amount payable by the buyer including ROBOKASSA’s
      * charge (according to the service plan) and charges of other systems
@@ -1348,7 +1350,7 @@ class Payment
             return null;
         }
 
-        return new Invoice($this->invoiceId, $this->culture, $sxe);
+        return new Invoice($invoiceId, $this->culture, $sxe);
     }
 
     private function parseError(\SimpleXMLElement $sxe)
