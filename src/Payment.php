@@ -1038,7 +1038,7 @@ class Payment
     }
 
     /**
-     * Set any property which has `set` method from array.
+     * Set any property which has setter method from array.
      *
      * @param array $data
      *
@@ -1232,9 +1232,9 @@ class Payment
         foreach ($sxe->Groups->Group as $i => $group) {
             $items = [];
             foreach ($group->Items->Currency as $item) {
-                $rate = (double)$item->Rate->attributes()->IncSum;
+                $clientSum = (double)$item->Rate->attributes()->IncSum;
                 $item = (array)$item;
-                $items[] = $item['@attributes'] + ['Rate' => $rate];
+                $items[] = $item['@attributes'] + ['ClientSum' => $clientSum];
             }
             $groups[] = [
                 'Code'        => (string)$group->attributes()->Code,
@@ -1308,7 +1308,7 @@ class Payment
             }
             return null;
         } else {
-            return $rates[0]['Items'][0]['Rate'];
+            return $rates[0]['Items'][0]['ClientSum'];
         }
     }
 

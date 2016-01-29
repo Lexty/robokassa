@@ -187,7 +187,7 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
     public function get_payment_url_with_autoset_shop_comission_custom_param()
     {
         $prefix = $this->getPropertyValue($this->createPayment(), 'customParamsPrefix');
-        $key = $this->getPropertyValue($this->createPayment(), 'shopComissionCustomParamKey');
+        $key = $this->getPropertyValue($this->createPayment(), 'shopCommissionCustomParamKey');
 
         $this->assertEquals(
             'https://auth.robokassa.ru/Merchant/Index.aspx?MerchantLogin=login&Description=Payment+description' .
@@ -296,7 +296,7 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
         $payment = $this->createPayment();
 
         $prefix = $this->getPropertyValue($payment, 'customParamsPrefix');
-        $key = $this->getPropertyValue($payment, 'shopComissionCustomParamKey');
+        $key = $this->getPropertyValue($payment, 'shopCommissionCustomParamKey');
 
         $this->assertFalse($payment->isShopCommission());
         $payment->set([$prefix . $key => '1']);
@@ -568,26 +568,14 @@ XML;
                 'Code'        => 'FooCode',
                 'Description' => 'Foo description',
                 'Items'       => [
-                    [
-                        'Label' => 'BarLabel',
-                        'Name'  => 'BarName',
-                        'Rate'  => 165,
-                    ],
+                    ['Label' => 'BarLabel', 'Name'  => 'BarName', 'ClientSum'  => 165],
                 ],
             ], [
                 'Code'        => 'BazCode',
                 'Description' => 'Baz description',
                 'Items'       => [
-                    [
-                        'Label' => 'ButLabel',
-                        'Name'  => 'ButName',
-                        'Rate'  => 157.34,
-                    ],
-                    [
-                        'Label' => 'QuzLabel',
-                        'Name'  => 'QuzName',
-                        'Rate'  => 153.05,
-                    ],
+                    ['Label' => 'ButLabel', 'Name'  => 'ButName', 'ClientSum'  => 157.34],
+                    ['Label' => 'QuzLabel', 'Name'  => 'QuzName', 'ClientSum'  => 153.05],
                 ],
             ],
         ];
@@ -602,17 +590,17 @@ XML;
     <Group Code="{$expected[0]['Code']}" Description="{$expected[0]['Description']}">
       <Items>
         <Currency Label="{$expected[0]['Items'][0]['Label']}" Name="{$expected[0]['Items'][0]['Name']}">
-          <Rate IncSum="{$expected[0]['Items'][0]['Rate']}" />
+          <Rate IncSum="{$expected[0]['Items'][0]['ClientSum']}" />
         </Currency>
       </Items>
     </Group>
     <Group Code="{$expected[1]['Code']}" Description="{$expected[1]['Description']}">
       <Items>
         <Currency Label="{$expected[1]['Items'][0]['Label']}" Name="{$expected[1]['Items'][0]['Name']}">
-          <Rate IncSum="{$expected[1]['Items'][0]['Rate']}" />
+          <Rate IncSum="{$expected[1]['Items'][0]['ClientSum']}" />
         </Currency>
         <Currency Label="{$expected[1]['Items'][1]['Label']}" Name="{$expected[1]['Items'][1]['Name']}">
-          <Rate IncSum="{$expected[1]['Items'][1]['Rate']}" />
+          <Rate IncSum="{$expected[1]['Items'][1]['ClientSum']}" />
         </Currency>
       </Items>
     </Group>
