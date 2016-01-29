@@ -66,11 +66,10 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
      */
     public function get_payment_signature_hash_with_invalid_algorithm()
     {
-        $this->assertEquals('864798f31e43ac88bea969e54608a54a', $this->createPayment()
+        $this->createPayment()
             ->setSum(123)
             ->setHashAlgo('invalid')
-            ->getPaymentSignatureHash()
-        );
+            ->getPaymentSignatureHash();
     }
 
     /**
@@ -317,6 +316,51 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
     public function set_invalid_request_method()
     {
         $this->createPayment()->setRequestMethod('PUT');
+    }
+
+    /**
+     * @test
+     * @covers Payment::getScriptUrl()
+     */
+    public function get_script_url()
+    {
+        $this->assertEquals(
+            'https://auth.robokassa.ru/Merchant/PaymentForm/FormMS.js?MerchantLogin=login' .
+            '&Description=Payment+description&SignatureValue=36a95458024a31d5e8db246f384527d8&OutSum=150.00&InvId=53' .
+            '&Culture=en&Encoding=utf-8&Email=mail%40example.org&ExpirationDate=2016-01-29T15%3A18%3A20%2B00%3A00' .
+            '&OutSumCurrency=USD&IncCurrLabel=BankCard&isTest=1&Shp_bar=bar+value&Shp_foo=foo+value',
+            $this->createPayment()
+                ->setInvoiceId(53)
+                ->setSum(150)
+                ->setDescription('Payment description')
+                ->setCulture(Payment::CULTURE_EN)
+                ->setEncoding('utf-8')
+                ->setEmail('mail@example.org')
+                ->setExpirationDate('2016-01-29T15:18:20+00:00')
+                ->setCurrency('USD')
+                ->setPaymentMethod('BankCard')
+                ->setIsTest(true)
+                ->setCustomParam('foo', 'foo value')
+                ->setCustomParam('bar', 'bar value')
+                ->getScriptUrl(Payment::FORM_TYPE_MS));
+    }
+
+    /**
+     * @test
+     * @covers Payment::getScriptUrl()
+     */
+    public function get_script_url_with_changing_price()
+    {
+        $this->assertEquals(
+            'https://auth.robokassa.ru/Merchant/PaymentForm/FormFLS.js?MerchantLogin=login' .
+            '&Description=Payment+description&SignatureValue=19ee5a0d0764f0005f68de9919db53d3&DefaultSum=150.00' .
+            '&InvId=53&Culture=ru',
+            $this->createPayment()
+                ->setInvoiceId(53)
+                ->setSum(150)
+                ->setIsTest(false)
+                ->setDescription('Payment description')
+                ->getScriptUrl(Payment::FORM_TYPE_FLS));
     }
 
     public function validate_result()
