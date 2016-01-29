@@ -1,5 +1,11 @@
 # PHP library for Robokassa payment system
 
+[![Build Status](https://travis-ci.org/Lexty/robokassa.svg?branch=master)](https://travis-ci.org/lexty/robokassa)
+[![Latest Unstable Version](https://poser.pugx.org/lexty/robokassa/v/unstable)](https://packagist.org/packages/lexty/robokassa)
+[![Latest Unstable Version](https://poser.pugx.org/lexty/robokassa/v/unstable)](https://packagist.org/packages/lexty/robokassa)
+[![Total Downloads](https://poser.pugx.org/lexty/robokassa/downloads)](https://packagist.org/packages/lexty/robokassa)
+[![License](https://poser.pugx.org/lexty/robokassa/license)](https://packagist.org/packages/lexty/robokassa)
+
 ## Installation
 
 ```bash
