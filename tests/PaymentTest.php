@@ -440,8 +440,9 @@ XML;
 
     /**
      * @test
+     * @covers Payment::getCurrencies()
      */
-    public function get_currencies()
+    public function api_request_get_currencies()
     {
         $expected = [
             [
@@ -484,5 +485,33 @@ XML;
 XML;
 
         $this->assertEquals($expected, $this->getPaymentMock($response)->getCurrencies());
+    }
+
+    /**
+     * @test
+     * @covers Payment::getPaymentMethodGroups()
+     */
+    public function api_request_get_payment_method_groups()
+    {
+        $expected = [
+            'FooCode' => 'Foo description',
+            'BarCode' => 'Bar description',
+        ];
+        $keys = array_keys($expected);
+
+        $response = <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<PaymentMethodsList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>0</Code>
+  </Result>
+  <Methods>
+    <Method Code="{$keys[0]}" Description="{$expected['FooCode']}" />
+    <Method Code="{$keys[1]}" Description="{$expected['BarCode']}" />
+  </Methods>
+</PaymentMethodsList>
+XML;
+
+        $this->assertEquals($expected, $this->getPaymentMock($response)->getPaymentMethodGroups());
     }
 }
