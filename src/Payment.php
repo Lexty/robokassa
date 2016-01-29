@@ -1134,7 +1134,6 @@ class Payment
      */
     public function getCurrencies()
     {
-
         $response = $this->sendRequest(
             $this->serviceBaseUrl . 'GetCurrencies',
             ['MerchantLogin' => $this->merchantLogin, 'Language' => $this->culture],
@@ -1371,7 +1370,18 @@ class Payment
         return $this->hasError();
     }
 
-    public function sendRequest($url, array $params, $method)
+    /**
+     * Send request and return response.
+     *
+     * Protected for phpUnit mocking.
+     *
+     * @param string $url    URL
+     * @param array  $params `GET` or `POST` parameters.
+     * @param string $method `GET` or `POST` method.
+     *
+     * @return string
+     */
+    protected function sendRequest($url, array $params, $method)
     {
         $lcMethod = strtolower($method);
         $options = [

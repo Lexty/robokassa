@@ -27,6 +27,19 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @param string $return
+     *
+     * @return \PHPUnit_Framework_MockObject_MockObject|Payment
+     */
+    private function getPaymentMock($return)
+    {
+        $paymentMock = $this->getMock(get_class($this->createPayment()), ['sendRequest'], [], '', false);
+        $paymentMock->expects($this->once())->method('sendRequest')->will($this->returnValue($return));
+
+        return $paymentMock;
+    }
+
+    /**
      * @test
      */
     public function manage_custom_params_by_magic_methods()
@@ -363,15 +376,113 @@ class PaymentTest extends \PHPUnit_Framework_TestCase
                 ->getScriptUrl(Payment::FORM_TYPE_FLS));
     }
 
-    public function validate_result()
+    /**
+     * @test
+     * @covers Payment::parseError()
+     * @expectedException \Lexty\Robokassa\Exception\ResponseErrorException
+     * @expectedExceptionCode 123
+     * @expectedExceptionMessage Error description.
+     */
+    public function api_request_response_error_exception()
     {
-        // TODO add mock to Payment::sendRequest() for this test
-        $data = [
-            'InvId'          => '124',
-            'OutSum'         => '1000000',
-            'SignatureValue' => '124',
+        $response = <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<CurrenciesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>123</Code>
+    <Description>Error description.</Description>
+  </Result>
+</CurrenciesList>
+XML;
+
+        $this->getPaymentMock($response)->getCurrencies();
+    }
+
+    /**
+     * @test
+     * @covers Payment::parseError()
+     * @expectedException \Lexty\Robokassa\Exception\InvoiceNotFoundException
+     */
+    public function api_request_invoice_not_found_exception()
+    {
+        $response = <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<CurrenciesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>3</Code>
+    <Description></Description>
+  </Result>
+</CurrenciesList>
+XML;
+
+        $this->getPaymentMock($response)->getCurrencies();
+    }
+
+    /**
+     * @test
+     * @covers Payment::parseError()
+     * @expectedException \Lexty\Robokassa\Exception\CalculateSumErrorException
+     */
+    public function api_request_calculate_sum_error_exception()
+    {
+        $response = <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<CurrenciesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>5</Code>
+    <Description></Description>
+  </Result>
+</CurrenciesList>
+XML;
+
+        $this->getPaymentMock($response)->getCurrencies();
+    }
+
+    /**
+     * @test
+     */
+    public function get_currencies()
+    {
+        $expected = [
+            [
+                'Code'        => 'foo',
+                'Description' => 'Foo description',
+                'Items'       => [
+                    ['Label' => 'BarLabel', 'Name' => 'BarName'],
+                ],
+            ],
+            [
+                'Code'        => 'baz',
+                'Description' => 'Baz description',
+                'Items'       => [
+                    ['Label' => 'BatLabel', 'Name' => 'BatName'],
+                    ['Label' => 'QuxLabel', 'Name' => 'QuxName'],
+                ],
+            ],
         ];
 
-        $payment = $this->createPayment()->validateResult($data);
+        $response = <<< XML
+<?xml version="1.0" encoding="utf-8" ?>
+<CurrenciesList xmlns="http://auth.robokassa.ru/Merchant/WebService/">
+  <Result>
+    <Code>0</Code>
+  </Result>
+  <Groups>
+    <Group Code="{$expected[0]['Code']}" Description="{$expected[0]['Description']}">
+      <Items>
+        <Currency Label="{$expected[0]['Items'][0]['Label']}" Name="{$expected[0]['Items'][0]['Name']}" />
+      </Items>
+    </Group>
+    <Group Code="{$expected[1]['Code']}" Description="{$expected[1]['Description']}">
+      <Items>
+        <Currency Label="{$expected[1]['Items'][0]['Label']}" Name="{$expected[1]['Items'][0]['Name']}" />
+        <Currency Label="{$expected[1]['Items'][1]['Label']}" Name="{$expected[1]['Items'][1]['Name']}" />
+      </Items>
+    </Group>
+  </Groups>
+</CurrenciesList>
+XML;
+
+        $this->assertEquals($expected, $this->getPaymentMock($response)->getCurrencies());
     }
 }
