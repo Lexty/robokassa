@@ -1,0 +1,30 @@
+{
+    "name": "lexty/robokassa",
+    "description": "PHP library for Robokassa payment system",
+    "keywords": ["lexty", "robokassa", "payment"],
+    "homepage": "https://github.com/lexty/robokassa",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Alexandr Medvedev",
+            "email": "alexandr.mdr@gmail.com"
+        }
+    ],
+    "support": {
+        "source": "https://github.com/lexty/robokassa",
+        "issues": "https://github.com/lexty/robokassa/issues"
+    },
+    "require": {
+        "php": ">=5.4.0",
+        "ext-curl": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "4.8.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Lexty\\Robokassa\\": "src/"
+        }
+    }
+}
