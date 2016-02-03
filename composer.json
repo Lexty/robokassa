@@ -24,6 +24,7 @@
     },
     "autoload": {
         "psr-4": {
+            "Lexty\\Robokassa\\Tests\\": "tests/",
             "Lexty\\Robokassa\\": "src/"
         }
     }

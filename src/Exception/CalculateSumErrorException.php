@@ -17,12 +17,8 @@ class CalculateSumErrorException extends ResponseErrorException
         Payment::CULTURE_RU => 'Ошибка при расчёте сумм.',
     ];
 
-    public function __construct(Payment $payment, $message = '', \Exception $previous = null)
+    public function __construct($message = '', \Exception $previous = null)
     {
-        if (empty($message)) {
-            $message = self::$msg[$payment->getCulture()];
-        }
-
-        parent::__construct($payment, $message, self::ERR_CODE, $previous);
+        parent::__construct($message, self::ERR_CODE, $previous);
     }
 }

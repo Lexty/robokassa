@@ -6,14 +6,12 @@
  */
 namespace Lexty\Robokassa\Exception;
 
-use Lexty\Robokassa\Payment;
-
 class InvoiceNotFoundException extends ResponseErrorException
 {
     const ERR_CODE = 3;
 
-    public function __construct(Payment $payment, $message = '', \Exception $previous = null)
+    public function __construct($message = '', \Exception $previous = null)
     {
-        parent::__construct($payment, $message, self::ERR_CODE, $previous);
+        parent::__construct($message, self::ERR_CODE, $previous);
     }
 }

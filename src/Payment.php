@@ -6,26 +6,34 @@
  */
 namespace Lexty\Robokassa;
 
-use Lexty\Robokassa\Exception\CalculateSumErrorException;
 use Lexty\Robokassa\Exception\EmptyDescriptionException;
-use Lexty\Robokassa\Exception\EmptyPaymentMethodException;
 use Lexty\Robokassa\Exception\EmptySumException;
 use Lexty\Robokassa\Exception\InvalidCultureException;
 use Lexty\Robokassa\Exception\InvalidExpirationDateException;
 use Lexty\Robokassa\Exception\InvalidInvoiceIdException;
 use Lexty\Robokassa\Exception\InvalidSumException;
 use Lexty\Robokassa\Exception\InvoiceNotFoundException;
-use Lexty\Robokassa\Exception\ResponseErrorException;
-use Lexty\Robokassa\Exception\UnsupportedHashAlgorithmException;
-use Lexty\Robokassa\Exception\UnsupportedRequestMethodException;
 
+/**
+ * The payment.
+ *
+ * @method string  getHashAlgo()
+ * @method Payment setHashAlgo(string $algo)
+ * @method string  getMerchantLogin()
+ * @method Payment setMerchantLogin(string $login)
+ * @method string  getPaymentPassword()
+ * @method Payment setPaymentPassword(string $passwrod)
+ * @method string  getValidationPassword()
+ * @method Payment setValidationPassword(string $passwrod)
+ * @method bool    isTest()
+ * @method Payment setTest(bool $test)
+ * @method string  getRequestMethod()
+ * @method Payment setRequestMethod(string $method)
+ */
 class Payment
 {
     const CULTURE_EN = 'en';
     const CULTURE_RU = 'ru';
-
-    const REQUEST_METHOD_GET  = 'get';
-    const REQUEST_METHOD_POST = 'post';
 
     const FORM_TYPE_M   = 'M';
     const FORM_TYPE_MS  = 'MS';
@@ -36,25 +44,47 @@ class Payment
     const FORM_TYPE_FL  = 'FL';
     const FORM_TYPE_FLS = 'FLS';
 
-    const HASH_ALGO_MD5       = 'md5';
-//    const HASH_ALGO_RIPEMD160 = 'ripemd160';
-//    const HASH_ALGO_SHA1      = 'sha1';
-//    const HASH_ALGO_SHA256    = 'sha256';
-//    const HASH_ALGO_SHA384    = 'sha384';
-//    const HASH_ALGO_SHA512    = 'sha512';
+    const STATE_NEW        = 0;
+    const STATE_INITIATED  = 5;
+    const STATE_CANCELED   = 10;
+    const STATE_PROCESSING = 50;
+    const STATE_RETURNED   = 60;
+    const STATE_SUSPENDED  = 80;
+    const STATE_COMPLETED  = 100;
 
     /**
-     * @var string
+     * @var string[]
      */
-    private $merchantLogin;
+    private static $stateDescriptions = [
+        self::CULTURE_EN => [
+            self::STATE_NEW        => '',
+            self::STATE_INITIATED  => 'Initiated, payment is not received by the service.',
+            self::STATE_CANCELED   => 'Payment was not received, operation canceled.',
+            self::STATE_PROCESSING => 'Payment received, payment is transferred to the shop account.',
+            self::STATE_RETURNED   => 'Payment was returned to buyer after it was received.',
+            self::STATE_SUSPENDED  => 'Operation execution is suspended.',
+            self::STATE_COMPLETED  => 'Operation completed successfully.',
+        ],
+        self::CULTURE_RU => [
+            self::STATE_NEW        => '',
+            self::STATE_INITIATED  => 'Операция только инициализирована, деньги от покупателя не получены.',
+            self::STATE_CANCELED   => 'Операция отменена, деньги от покупателя не были получены.',
+            self::STATE_PROCESSING => 'Деньги от покупателя получены, производится зачисление денег на счет магазина.',
+            self::STATE_RETURNED   => 'Деньги после получения были возвращены покупателю.',
+            self::STATE_SUSPENDED  => 'Исполнение операции приостановлено.',
+            self::STATE_COMPLETED  => 'Операция выполнена, завершена успешно.',
+        ],
+    ];
+
     /**
-     * @var string
+     * @var Auth
      */
-    private $paymentPassword;
+    private $auth;
     /**
-     * @var string
+     * @var Client
      */
-    private $validationPassword;
+    private $client;
+
     /**
      * @var float
      */
@@ -80,7 +110,7 @@ class Payment
     /**
      * @var int
      */
-    private $invoiceId;
+    private $id;
     /**
      * @var string
      */
@@ -114,29 +144,33 @@ class Payment
      */
     private $currency;
     /**
-     * @var bool
-     */
-    private $isTest;
-    /**
      * @var \string[]
      */
     private $customParams = [];
     /**
-     * @var string
+     * @var int
      */
-    private $hashAlgo = self::HASH_ALGO_MD5;
+    private $stateCode = self::STATE_NEW;
+    /**
+     * @var null|\DateTime
+     */
+    private $requestDate;
+    /**
+     * @var null|\DateTime
+     */
+    private $stateDate;
     /**
      * @var string
      */
-    private $formType = self::FORM_TYPE_M;
+    private $clientAccount;
     /**
      * @var string
      */
-    private $requestMethod = self::REQUEST_METHOD_GET;
+    private $paymentMethodCode;
     /**
-     * @var bool
+     * @var string
      */
-    private $throwExceptions = true;
+    private $paymentMethodDescription;
 //    /**
 //     * @var bool
 //     */
@@ -146,14 +180,6 @@ class Payment
 //     */
 //    private $previousInvoiceId;
     /**
-     * @var int
-     */
-    private $errorCode;
-    /**
-     * @var string
-     */
-    private $errorDescription;
-    /**
      * @var bool
      */
     private $valid = false;
@@ -161,28 +187,24 @@ class Payment
     private $isShopSumChanged   = false;
     private $isClientSumChanged = false;
 
-    private $scriptBaseUrl    = 'https://auth.robokassa.ru/Merchant/PaymentForm/Form';
-    private $paymentBaseUrl   = 'https://auth.robokassa.ru/Merchant/Index.aspx';
-    private $serviceBaseUrl   = 'https://auth.robokassa.ru/Merchant/WebService/Service.asmx/';
-//    private $recurringBaseUrl = 'https://auth.robokassa.ru/Merchant/Recurring';
-
     private $customParamsPrefix = 'Shp_';
     private $shopCommissionCustomParamKey = '_shop_commission';
 
     /**
      * Payment constructor.
      *
-     * @param string $merchantLogin
-     * @param string $paymentPassword
-     * @param string $validationPassword
-     * @param bool   $isTest
+     * @param Auth   $auth   Authenticate credentials.
+     * @param Client $client Robokassa API client.
      */
-    public function __construct($merchantLogin, $paymentPassword, $validationPassword, $isTest = false)
+    public function __construct(Auth $auth, Client $client = null)
     {
-        $this->setMerchantLogin($merchantLogin);
-        $this->setPaymentPassword($paymentPassword);
-        $this->setValidationPassword($validationPassword);
-        $this->setIsTest($isTest);
+        if (null === $client) {
+            $client = new Client($auth);
+        }
+
+        $this->auth = $auth;
+        $this->client = $client;
+        $this->culture = $client->getCulture();
     }
 
     /**
@@ -192,14 +214,10 @@ class Payment
      *
      * @link http://docs.robokassa.ru/en#2537
      */
-    public function getScriptUrl($type = null)
+    public function getFormUrl($type = null)
     {
-        if (null === $type) {
-            $type = $this->formType;
-        } else {
-            $type = strtoupper($type);
-        }
-        return $this->scriptBaseUrl . $type . '.js?' . $this->getPaymentUrlQueryString(
+        $type = strtoupper($type);
+        return $this->client->getFormBaseUrl() . $type . '.js?' . $this->getPaymentUrlQueryString(
             self::FORM_TYPE_FL === $type || self::FORM_TYPE_FLS === $type
         );
     }
@@ -207,17 +225,9 @@ class Payment
     /**
      * @return string
      */
-    public function getPaymentBaseUrl()
-    {
-        return $this->paymentBaseUrl;
-    }
-
-    /**
-     * @return string
-     */
     public function getPaymentUrl()
     {
-        return $this->paymentBaseUrl . '?' . $this->getPaymentUrlQueryString();
+        return $this->client->getPaymentBaseUrl() . '?' . $this->getPaymentUrlQueryString();
     }
 
     /**
@@ -238,11 +248,11 @@ class Payment
     private function getPaymentUrlQueryArray($defaultSum = false)
     {
         if (empty($this->description)) {
-            throw new EmptyDescriptionException($this);
+            throw new EmptyDescriptionException();
         }
 
         $params = [
-            'MerchantLogin'  => $this->merchantLogin,
+            'MerchantLogin'  => $this->auth->getMerchantLogin(),
             'Description'    => $this->description,
             'SignatureValue' => $this->getPaymentSignatureHash(),
         ];
@@ -253,14 +263,14 @@ class Payment
             $params['OutSum'] = $this->getShopSum();
         }
 
-        if ($this->invoiceId)          $params['InvId']             = $this->invoiceId;
+        if ($this->id) $params['InvId'] = $this->id;
         if ($this->culture)            $params['Culture']           = $this->culture;
         if ($this->encoding)           $params['Encoding']          = $this->encoding;
         if ($this->email)              $params['Email']             = $this->email;
         if ($this->expirationDate)     $params['ExpirationDate']    = $this->expirationDate->format('c');
         if ($this->currency)           $params['OutSumCurrency']    = $this->currency;
         if ($this->paymentMethod)      $params['IncCurrLabel']      = $this->paymentMethod;
-        if ($this->isTest)             $params['isTest']            = 1;
+        if ($this->auth->isTest())     $params['isTest']            = 1;
 //        if ($this->recurring)          $params['Recurring']         = 1;
 //        if ($this->previousInvoiceId)  $params['PreviousInvoiceID'] = $this->previousInvoiceId;
         if ($this->customParams)       $params += $this->getCustomParamsArray();
@@ -272,7 +282,7 @@ class Payment
      * @return string
      */
     public function getPaymentSignatureHash() {
-        return $this->getSignatureHash($this->getPaymentSignature());
+        return $this->auth->getSignatureHash($this->getPaymentSignature());
     }
 
     /**
@@ -280,116 +290,37 @@ class Payment
      */
     public function getPaymentSignature() {
         if (!$this->sum) {
-            throw new EmptySumException($this);
+            throw new EmptySumException();
         }
 
-        return $this->getSignatureValue('{ml}:{ss}:{ii}{:cr}:{pp}{:cp}', [
-            'ml' => $this->merchantLogin,
+        return $this->auth->getSignatureValue('{ml}:{ss}:{ii}{:cr}:{pp}{:cp}', [
+            'ml' => $this->auth->getMerchantLogin(),
             'ss' => $this->getShopSum(),
-            'ii' => $this->invoiceId,
+            'ii' => $this->id,
             'cr' => $this->currency,
-            'pp' => $this->paymentPassword,
+            'pp' => $this->auth->getPaymentPassword(),
             'cp' => $this->getCustomParamsString(),
         ]);
     }
 
     /**
-     * @param string $signature
-     * @param array  $params
+     * Gets the authenticate credentials.
      *
-     * @return string
+     * @return Auth
      */
-    private function getSignatureHash($signature, array $params = [])
+    public function getAuth()
     {
-        if (!array_search($this->hashAlgo, hash_algos(), true)) {
-            throw new UnsupportedHashAlgorithmException(
-                $this, sprintf('Unsupported hash algorithm "%s".', $this->hashAlgo)
-            );
-        }
-
-        if (empty($params)) {
-            return hash($this->hashAlgo, $signature);
-        } else {
-            return hash($this->hashAlgo, $this->getSignatureValue($signature, $params));
-        }
+        return $this->auth;
     }
 
     /**
-     * @param string $signature
-     * @param array  $params
+     * Gets the Robokassa API client.
      *
-     * @return string
+     * @return Client
      */
-    private function getSignatureValue($signature, array $params)
+    public function getClient()
     {
-        foreach ($params as $ph => $param) {
-            $signature = str_replace(
-                ['{:' . $ph . '}', '{' . $ph . '}'],
-                [$param ? ':' . $param : '', $param],
-                $signature
-            );
-        }
-        return $signature;
-    }
-
-    /**
-     * @return string
-     */
-    public function getMerchantLogin()
-    {
-        return $this->merchantLogin;
-    }
-
-    /**
-     * @param string $merchantLogin
-     *
-     * @return Payment
-     */
-    public function setMerchantLogin($merchantLogin)
-    {
-        $this->merchantLogin = (string)$merchantLogin;
-
-        return $this;
-    }
-
-    /**
-     * @return string
-     */
-    public function getPaymentPassword()
-    {
-        return $this->paymentPassword;
-    }
-
-    /**
-     * @param string $paymentPassword
-     *
-     * @return Payment
-     */
-    public function setPaymentPassword($paymentPassword)
-    {
-        $this->paymentPassword = (string)$paymentPassword;
-
-        return $this;
-    }
-
-    /**
-     * @return string
-     */
-    public function getValidationPassword()
-    {
-        return $this->validationPassword;
-    }
-
-    /**
-     * @param string $validationPassword
-     *
-     * @return Payment
-     */
-    public function setValidationPassword($validationPassword)
-    {
-        $this->validationPassword = (string)$validationPassword;
-
-        return $this;
+        return $this->client;
     }
 
     /**
@@ -410,7 +341,7 @@ class Payment
         if ($this->sum !== $sum) {
             $sum = number_format($sum, 2, '.', '');
             if ($sum <= 0) {
-                throw new InvalidSumException($this);
+                throw new InvalidSumException();
             }
 
             $this->sum                = $sum;
@@ -428,7 +359,7 @@ class Payment
     {
         if ($this->isShopSumChanged) {
             if ($this->shopCommission) {
-                $this->shopSum = $this->calculateShopSum($this->sum, $this->paymentMethod);
+                $this->shopSum = $this->client->calculateShopSum($this->sum, $this->paymentMethod);
             } else {
                 $this->shopSum = $this->sum;
             }
@@ -447,7 +378,7 @@ class Payment
             if ($this->shopCommission) {
                 $this->clientSum = $this->sum;
             } else {
-                $this->clientSum = $this->calculateClientSum($this->sum, $this->paymentMethod);
+                $this->clientSum = $this->client->calculateClientSum($this->sum, $this->paymentMethod);
             }
             $this->isClientSumChanged = false;
         }
@@ -489,9 +420,9 @@ class Payment
     /**
      * @return int
      */
-    public function getInvoiceId()
+    public function getId()
     {
-        return $this->invoiceId;
+        return $this->id;
     }
 
     /**
@@ -499,13 +430,13 @@ class Payment
      *
      * @return Payment
      */
-    public function setInvoiceId($invId)
+    public function setId($invId)
     {
         if ($invId < 0) {
-            throw new InvalidInvoiceIdException($this);
+            throw new InvalidInvoiceIdException();
         }
 
-        $this->invoiceId = (int)$invId;
+        $this->id = (int)$invId;
 
         return $this;
     }
@@ -571,7 +502,7 @@ class Payment
     {
         $lcCulture = strtolower($culture);
         if (self::CULTURE_EN !== $lcCulture && self::CULTURE_RU !== $lcCulture) {
-            throw new InvalidCultureException($this, sprintf('Unsupported culture "%s".', $culture));
+            throw new InvalidCultureException(sprintf('Unsupported culture "%s".', $culture));
         }
         $this->culture = $lcCulture;
 
@@ -643,11 +574,11 @@ class Payment
                 $date = $expirationDate;
             }
         } catch (\Exception $e) {
-            throw new InvalidExpirationDateException($this, $e->getMessage(), $e->getCode(), $e);
+            throw new InvalidExpirationDateException($e->getMessage(), $e->getCode(), $e);
         }
 
         if (null !== $date && !($date instanceof \DateTime)) {
-            throw new InvalidExpirationDateException($this);
+            throw new InvalidExpirationDateException();
         }
 
         $this->expirationDate = $date;
@@ -676,110 +607,62 @@ class Payment
     }
 
     /**
-     * @return string
+     * @return int
      */
-    public function getHashAlgo()
+    public function getStateCode()
     {
-        return $this->hashAlgo;
-    }
-
-    /**
-     * @param string $hashAlgo
-     *
-     * @return Payment
-     */
-    public function setHashAlgo($hashAlgo)
-    {
-        $this->hashAlgo = (string)$hashAlgo;
-
-        return $this;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isTest()
-    {
-        return $this->isTest;
-    }
-
-    /**
-     * @param bool $isTest
-     *
-     * @return Payment
-     */
-    public function setIsTest($isTest)
-    {
-        $this->isTest = (bool)$isTest;
-
-        return $this;
+        return $this->stateCode;
     }
 
     /**
      * @return string
      */
-    public function getFormType()
+    public function getStateDescription()
     {
-        return $this->formType;
-    }
-
-    /**
-     * @param string $formType
-     *
-     * @return Payment
-     */
-    public function setFormType($formType)
-    {
-        $this->formType = strtoupper($formType);
-
-        return $this;
-    }
-
-    /**
-     * @return string
-     */
-    public function getRequestMethod()
-    {
-        return $this->requestMethod;
-    }
-
-    /**
-     * @param string $requestMethod
-     *
-     * @return Payment
-     */
-    public function setRequestMethod($requestMethod)
-    {
-        $lcRequestMethod = strtolower($requestMethod);
-        if (self::REQUEST_METHOD_GET !== $lcRequestMethod && self::REQUEST_METHOD_POST !== $lcRequestMethod) {
-            throw new UnsupportedRequestMethodException(
-                $this, sprintf('Unsupported request method "%s".', $requestMethod)
-            );
+        if (!isset(self::$stateDescriptions[$this->culture][$this->stateCode])) {
+            return '';
         }
-
-        $this->requestMethod = $lcRequestMethod;
-
-        return $this;
+        return self::$stateDescriptions[$this->culture][$this->stateCode];
     }
 
     /**
-     * @return bool
+     * @return null|\DateTime
      */
-    public function isThrowExceptions()
+    public function getRequestDate()
     {
-        return $this->throwExceptions;
+        return $this->requestDate;
     }
 
     /**
-     * @param bool $throwExceptions
-     *
-     * @return Payment
+     * @return null|\DateTime
      */
-    public function setThrowExceptions($throwExceptions)
+    public function getStateDate()
     {
-        $this->throwExceptions = $throwExceptions;
+        return $this->stateDate;
+    }
 
-        return $this;
+    /**
+     * @return string
+     */
+    public function getClientAccount()
+    {
+        return $this->clientAccount;
+    }
+
+    /**
+     * @return string
+     */
+    public function getPaymentMethodCode()
+    {
+        return $this->paymentMethodCode;
+    }
+
+    /**
+     * @return string
+     */
+    public function getPaymentMethodDescription()
+    {
+        return $this->paymentMethodDescription;
     }
 
 //    /**
@@ -830,30 +713,6 @@ class Payment
     public function isValid()
     {
         return $this->valid;
-    }
-
-    /**
-     * @return bool
-     */
-    public function hasError()
-    {
-        return (bool)$this->errorCode;
-    }
-
-    /**
-     * @return int
-     */
-    public function getErrorCode()
-    {
-        return $this->errorCode;
-    }
-
-    /**
-     * @return string
-     */
-    public function getErrorDescription()
-    {
-        return $this->errorDescription;
     }
 
     /**
@@ -1008,27 +867,37 @@ class Payment
     {
         if (strlen($name) > 6 && 0 === stripos($name, 'getshp')) {
 
-            // $payment->getShpParam('default value');
+            // $payment->getShpKey('default value');
             $method = 'getCustomParam';
             $arguments = [substr($name, 6), isset($arguments[0]) ? $arguments[0] : null];
 
         } else if (strlen($name) > 6 && 0 === stripos($name, 'setshp') && count($arguments) === 1) {
 
-            // $payment->setShpParam('value');
+            // $payment->setShpKey('value');
             $method = 'setCustomParam';
             $arguments = [substr($name, 6), $arguments[0]];
 
         } else if (strlen($name) > 6 && 0 === stripos($name, 'hasshp')) {
 
-            // $payment->hasShpParam();
+            // $payment->hasShpKey();
             $method = 'hasCustomParam';
             $arguments = [substr($name, 6)];
 
         } else if (strlen($name) > 9 && 0 === stripos($name, 'removeshp')) {
 
-            // $payment->removeShpParam();
+            // $payment->removeShpKey();
             $method = 'removeCustomParam';
             $arguments = [substr($name, 9)];
+
+        } else if (method_exists($this->auth, $name)) {
+
+            $return = call_user_func_array([$this->auth, $name], $arguments);
+            return $return === $this->auth ? $this : $return;
+
+        } else if (method_exists($this->client, $name)) {
+
+            $return = call_user_func_array([$this->client, $name], $arguments);
+            return $return === $this->client ? $this : $return;
 
         } else {
             throw new \BadMethodCallException(sprintf('Call to undefined method %s::%s()', get_class($this), $name));
@@ -1056,27 +925,32 @@ class Payment
             }
         }
 
+        $this->auth->set($data);
+        $this->client->set($data);
+
         return $this;
     }
 
     /**
-     * @param array $data
+     * @param array $data   Request data.
+     * @param bool  $strict Addition check invoice existence and its state.
      *
      * @return bool
      */
-    public function validateResult(array $data)
+    public function validateResult(array $data, $strict = true)
     {
-        return $this->validate($data, 'validation');
+        return $this->validate($data, $strict, 'validation');
     }
 
     /**
-     * @param array $data
+     * @param array $data   Request data.
+     * @param bool  $strict Addition check invoice existence and its state.
      *
      * @return bool
      */
-    public function validateSuccess(array $data)
+    public function validateSuccess(array $data, $strict = true)
     {
-        return $this->validate($data, 'payment');
+        return $this->validate($data, $strict, 'payment');
     }
 
     /**
@@ -1084,43 +958,40 @@ class Payment
      */
     public function getSuccessAnswer()
     {
-        return 'OK' . $this->getInvoiceId() . "\n";
+        return 'OK' . $this->getId() . "\n";
     }
 
     /**
      * @param array  $data
+     * @param bool   $strict
      * @param string $passwordType
      *
      * @return bool
      */
-    private function validate(array $data, $passwordType)
+    private function validate(array $data, $strict, $passwordType)
     {
         if (!isset($data['InvId'], $data['OutSum'], $data['SignatureValue'])) {
             return false;
         }
 
         $this->set($data);
-        $this->setInvoiceId($data['InvId']);
+        $this->setId($data['InvId']);
 
-        $this->valid = $data['SignatureValue'] === $this->getSignatureHash('{os}:{ii}:{pp}{:cp}', [
-            'os' => $data['OutSum'],
-            'ii' => $data['InvId'],
-            'pp' => $this->{$passwordType . 'Password'},
-            'cp' => $this->getCustomParamsString(),
-        ]);
+        $this->valid = $data['SignatureValue'] === $this->auth->getSignatureHash(
+            '{os}:{ii}:{pp}{:cp}',
+            [
+                'os' => $data['OutSum'],
+                'ii' => $data['InvId'],
+                'pp' => $this->auth->{'get' . $passwordType . 'Password'}(),
+                'cp' => $this->getCustomParamsString(),
+            ]
+        );
 
-        if ($this->valid) {
+        if ($this->valid && $strict) {
             try {
-                $inv = $this->getInvoice();
-                $this->valid = $inv
-                    && $data['OutSum'] == $inv->getShopSum()
-                    && $inv->getStateCode() === Invoice::STATE_COMPLETED;
-
-                if ($this->valid) {
-                    $this->paymentMethod = $inv->getPaymentMethod();
-                    $this->clientSum = $inv->getClientSum();
-                    $this->shopSum = $inv->getShopSum();
-                }
+                $this->fetch();
+                $this->valid = $data['OutSum'] == $this->shopSum
+                               && Invoice::STATE_COMPLETED === $this->stateCode;
             } catch (InvoiceNotFoundException $e) {
                 $this->valid = false;
             }
@@ -1130,284 +1001,27 @@ class Payment
     }
 
     /**
-     * Returns the list of currencies available to pay for the orders from a particular store/website.
-     *
-     * @return array
+     * @return Payment
      */
-    public function getCurrencies()
+    public function fetch()
     {
-        $response = $this->sendRequest(
-            $this->serviceBaseUrl . 'GetCurrencies',
-            ['MerchantLogin' => $this->merchantLogin, 'Language' => $this->culture],
-            $this->requestMethod
-        );
+        $invoice = $this->client->getInvoice($this->id);
 
-        $sxe = simplexml_load_string($response);
-        if ($this->parseError($sxe)) {
-            return null;
-        }
+        $this->stateCode                = $invoice['StateCode'];
+        $this->requestDate              = $invoice['RequestDate'];
+        $this->stateDate                = $invoice['StateDate'];
+        $this->paymentMethod            = $invoice['PaymentMethod'];
+        $this->clientSum                = $invoice['ClientSum'];
+        $this->clientAccount            = $invoice['ClientAccount'];
+        $this->paymentMethodCode        = $invoice['PaymentMethodCode'];
+        $this->paymentMethodDescription = $invoice['PaymentMethodDescription'];
+        $this->currency                 = $invoice['Currency'];
+        $this->shopSum                  = $invoice['ShopSum'];
 
-        if (!$sxe->Groups->Group) {
-            return [];
-        }
-        $groups = [];
-        foreach ($sxe->Groups->Group as $i => $group) {
-            $items = [];
-            foreach ($group->Items->Currency as $item) {
-                $item = (array)$item;
-                $items[] = $item['@attributes'];
-            }
-            $groups[] = [
-                'Code'        => (string)$group->attributes()->Code,
-                'Description' => (string)$group->attributes()->Description,
-                'Items'       => $items,
-            ];
-        }
-        return $groups;
-    }
+        $this->sum = $this->shopCommission ? $this->clientSum : $this->shopSum;
+        $this->isShopSumChanged   = false;
+        $this->isClientSumChanged = false;
 
-    /**
-     * Returns the list of available payment method groups.
-     *
-     * @return \string[]
-     */
-    public function getPaymentMethodGroups()
-    {
-        $response = $this->sendRequest(
-            $this->serviceBaseUrl . 'GetPaymentMethods',
-            ['MerchantLogin' => $this->merchantLogin, 'Language' => $this->culture],
-            $this->requestMethod
-        );
-
-        $sxe = simplexml_load_string($response);
-        if ($this->parseError($sxe)) {
-            return null;
-        }
-
-        if (!$sxe->Methods->Method) {
-            return [];
-        }
-        $methods = [];
-        foreach ($sxe->Methods->Method as $method) {
-            $methods[(string)$method->attributes()->Code] = (string)$method->attributes()->Description;
-        }
-        return $methods;
-    }
-
-    /**
-     * Returns the sums with commission and some addition data.
-     *
-     * @param float       $shopSum
-     * @param string      $paymentMethod
-     * @param string|null $culture
-     *
-     * @return array
-     */
-    public function getRates($shopSum, $paymentMethod = '', $culture = null)
-    {
-        if (null === $culture) {
-            $culture = $this->culture;
-        }
-
-        $response = $this->sendRequest(
-            $this->serviceBaseUrl . 'GetRates',
-            [
-                'MerchantLogin' => $this->merchantLogin,
-                'IncCurrLabel'  => $paymentMethod,
-                'OutSum'        => $shopSum,
-                'Language'      => $culture
-            ],
-            $this->requestMethod
-        );
-
-        $sxe = simplexml_load_string($response);
-        if ($this->parseError($sxe)) {
-            return null;
-        }
-
-        if (!$sxe->Groups->Group) {
-            return [];
-        }
-        $groups = [];
-        foreach ($sxe->Groups->Group as $i => $group) {
-            $items = [];
-            foreach ($group->Items->Currency as $item) {
-                $clientSum = (double)$item->Rate->attributes()->IncSum;
-                $item = (array)$item;
-                $items[] = $item['@attributes'] + ['ClientSum' => $clientSum];
-            }
-            $groups[] = [
-                'Code'        => (string)$group->attributes()->Code,
-                'Description' => (string)$group->attributes()->Description,
-                'Items'       => $items,
-            ];
-        }
-
-        return $groups;
-    }
-
-    /**
-     * Returns the sum with commission for `$paymentMethod`.
-     *
-     * Helps calculate the amount receivable on the basis of ROBOKASSA
-     * prevailing exchange rates from the amount payable by the user.
-     *
-     * @param double $clientSum
-     * @param string $paymentMethod
-     *
-     * @return double
-     * @throws CalculateSumErrorException If `$paymentMethod` not found and `Payment::isThrowExceptions()` is `true`.
-     */
-    public function calculateShopSum($clientSum, $paymentMethod)
-    {
-        if (!$paymentMethod) {
-            throw new EmptyPaymentMethodException($this);
-        }
-
-        $response = $this->sendRequest(
-            $this->serviceBaseUrl . 'CalcOutSumm',
-            ['MerchantLogin' => $this->merchantLogin, 'IncCurrLabel' => $paymentMethod, 'IncSum' => $clientSum],
-            $this->requestMethod
-        );
-
-        $sxe = simplexml_load_string($response);
-        if ($this->parseError($sxe)) {
-            return null;
-        }
-
-        return (double)$sxe->OutSum;
-    }
-
-    /**
-     * Returns the sum without commission for `$paymentMethod`.
-
-     * Helps calculate the amount payable by the buyer including ROBOKASSA’s
-     * charge (according to the service plan) and charges of other systems
-     * through which the buyer decided to pay for the order.
-     *
-     * @param double $shopSum
-     * @param string $paymentMethod
-     *
-     * @return double
-     * @throws CalculateSumErrorException If `$paymentMethod` not found and `Payment::isThrowExceptions()` is `true`.
-     */
-    public function calculateClientSum($shopSum, $paymentMethod)
-    {
-        if (!$paymentMethod) {
-            throw new EmptyPaymentMethodException($this);
-        }
-
-        $rates = $this->getRates($shopSum, $paymentMethod);
-
-        if (empty($rates)) {
-            // for the same behaviour as calculateShopSum()
-            $this->errorCode = CalculateSumErrorException::ERR_CODE;
-            $this->errorDescription = CalculateSumErrorException::$msg[$this->culture];
-            if ($this->throwExceptions) {
-                throw new CalculateSumErrorException($this);
-            }
-            return null;
-        } else {
-            return $rates[0]['Items'][0]['ClientSum'];
-        }
-    }
-
-    /**
-     * Returns detailed information on the current status and payment details.
-     *
-     * Please bear in mind that the transaction is initiated not when the
-     * user is redirected to the payment page, but later – once his payment
-     * details are confirmed, i.e. you may well see no transaction, which
-     * you believe should have been started already.
-     *
-     * Returns `null` if invoice is not found and `Payment::isThrowExceptions()` is `false`.
-     *
-     * @param null|int $invoiceId Invoice ID.
-     *
-     * @return Invoice|null
-     * @throws InvoiceNotFoundException If invoice is not found and `Payment::isThrowExceptions()` is `true`.
-     */
-    public function getInvoice($invoiceId = null)
-    {
-        if (null === $invoiceId) {
-            $invoiceId = $this->invoiceId;
-        }
-
-        $signature = $this->getSignatureHash('{ml}:{ii}:{vp}', [
-            'ml' => $this->merchantLogin,
-            'ii' => $invoiceId,
-            'vp' => $this->validationPassword,
-        ]);
-
-        $response = $this->sendRequest(
-            $this->serviceBaseUrl . 'OpState',
-            ['MerchantLogin' => $this->merchantLogin, 'InvoiceID' => $invoiceId, 'Signature' => $signature],
-            $this->requestMethod
-        );
-
-        $sxe = simplexml_load_string($response);
-        if ($this->parseError($sxe)) {
-            return null;
-        }
-
-        return new Invoice($invoiceId, $this->culture, $sxe);
-    }
-
-    private function parseError(\SimpleXMLElement $sxe)
-    {
-        $this->errorCode = (int)$sxe->Result->Code;
-        $this->errorDescription = (string)$sxe->Result->Description;
-
-        if ($this->hasError() && $this->throwExceptions) {
-            switch ($this->errorCode) {
-                case InvoiceNotFoundException::ERR_CODE:
-                    throw new InvoiceNotFoundException($this, $this->errorDescription);
-                case CalculateSumErrorException::ERR_CODE:
-                    throw new CalculateSumErrorException($this, $this->errorDescription);
-                default:
-                    throw new ResponseErrorException($this, $this->errorDescription, $this->errorCode);
-            }
-        }
-
-        return $this->hasError();
-    }
-
-    /**
-     * Send request and return response.
-     *
-     * Protected for phpUnit mocking.
-     *
-     * @param string $url    URL
-     * @param array  $params `GET` or `POST` parameters.
-     * @param string $method `GET` or `POST` method.
-     *
-     * @return string
-     */
-    protected function sendRequest($url, array $params, $method)
-    {
-        $lcMethod = strtolower($method);
-        $options = [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 3,
-            CURLOPT_TIMEOUT        => 20,
-        ];
-
-        if (Payment::REQUEST_METHOD_GET === $lcMethod) {
-            $url .= '?' . http_build_query($params);
-        } else {
-            $options[CURLOPT_POST] = true;
-            $options[CURLOPT_POSTFIELDS] = http_build_query($params);
-        }
-
-        $ch = curl_init($url);
-        curl_setopt_array($ch, $options);
-        $response = curl_exec($ch);
-
-        if (!$response) {
-            throw new \RuntimeException('cURL: ' . curl_error($ch), curl_errno($ch));
-        }
-        curl_close($ch);
-
-        return $response;
+        return $this;
     }
 }

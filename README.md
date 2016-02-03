@@ -15,10 +15,9 @@ $ composer require lexty/robokassa "dev-master"
 ## Examples
 
 Create payment:
-
 ```php
 $payment = new \Lexty\Robokassa\Payment(
-    'your_login', 'password1', 'password2', true
+    new \Lexty\Robokassa\Auth('your_login', 'password1', 'password2', true)
 );
 
 $payment
@@ -31,13 +30,13 @@ $payment
 header("Location: {$payment->getPaymentUrl()}");
 
 // or show payment button on page
-// <script src="<?php echo $payment->getScriptUrl(Payment::FORM_TYPE_L); ?>"></script>
+// <script src="<?php echo $payment->getFormUrl(Payment::FORM_TYPE_L); ?>"></script>
 ```
 
 Check payment result:
 
 ```php
-// somewere in result url handler...
+// somewhere in result url handler...
 ...
 $payment = new \Lexty\Robokassa\Payment(
     'your_login', 'password1', 'password2', true
@@ -47,6 +46,19 @@ if ($payment->validateResult($_GET) {
 
     // send answer
     echo $payment->getSuccessAnswer(); // "OK123\n"
+}
+...
+```
+
+Check payment on Success page:
+```php
+...
+$payment = new \Lexty\Robokassa\Payment(
+    new \Lexty\Robokassa\Auth('your_login', 'password1', 'password2', true)
+);
+
+if ($payment->validateSuccess($_GET) {
+    // payment is valid
 }
 ...
 ```
