@@ -991,7 +991,7 @@ class Payment
             try {
                 $this->fetch();
                 $this->valid = $data['OutSum'] == $this->shopSum
-                               && Invoice::STATE_COMPLETED === $this->stateCode;
+                               && Payment::STATE_COMPLETED === $this->stateCode;
             } catch (InvoiceNotFoundException $e) {
                 $this->valid = false;
             }

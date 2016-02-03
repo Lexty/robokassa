@@ -39,7 +39,7 @@ Check payment result:
 // somewhere in result url handler...
 ...
 $payment = new \Lexty\Robokassa\Payment(
-    'your_login', 'password1', 'password2', true
+    new \Lexty\Robokassa\Auth('your_login', 'password1', 'password2', true)
 );
 
 if ($payment->validateResult($_GET) {
@@ -64,6 +64,13 @@ if ($payment->validateSuccess($_GET) {
 ```
 
 ### Pay a commission for the buyer
+
+For paying comission for the buyer is sufficient to simply call `$payment->setShopCommission(true)`
+
+Please bear in mind that a user who is on the payment page ROBOKASSA can change the payment method with another
+commission. In this case, he will pay a different amount.
+
+### Getting list of currency
 
 For paying comission for the buyer is sufficient to simply call `$payment->setShopCommission(true)`
 
