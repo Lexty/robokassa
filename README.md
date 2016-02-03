@@ -9,7 +9,7 @@
 ## Installation
 
 ```bash
-$ composer require lexty/robokassa "dev-master"
+$ composer require lexty/robokassa
 ```
 
 ## Examples
