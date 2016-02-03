@@ -401,8 +401,6 @@ class Client
         $method = strtolower($method);
         $options = [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 3,
-            CURLOPT_TIMEOUT        => 20,
         ];
 
         if (self::REQUEST_METHOD_GET === $method) {
