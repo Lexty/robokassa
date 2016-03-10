@@ -5,6 +5,7 @@
 [![Latest Unstable Version](https://poser.pugx.org/lexty/robokassa/v/unstable)](https://packagist.org/packages/lexty/robokassa)
 [![Total Downloads](https://poser.pugx.org/lexty/robokassa/downloads)](https://packagist.org/packages/lexty/robokassa)
 [![License](https://poser.pugx.org/lexty/robokassa/license)](https://packagist.org/packages/lexty/robokassa)
+[![SensioLabsInsight](https://insight.sensiolabs.com/projects/a4941db4-0d75-4cca-9406-c195d89c646f/mini.png)](https://insight.sensiolabs.com/projects/a4941db4-0d75-4cca-9406-c195d89c646f)
 
 ## Installation
 
