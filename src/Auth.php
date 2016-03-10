@@ -13,12 +13,7 @@ use Lexty\Robokassa\Exception\UnsupportedHashAlgorithmException;
  */
 class Auth
 {
-    const HASH_ALGO_MD5       = 'md5';
-//    const HASH_ALGO_RIPEMD160 = 'ripemd160';
-//    const HASH_ALGO_SHA1      = 'sha1';
-//    const HASH_ALGO_SHA256    = 'sha256';
-//    const HASH_ALGO_SHA384    = 'sha384';
-//    const HASH_ALGO_SHA512    = 'sha512';
+    const HASH_ALGO_MD5 = 'md5';
 
     /**
      * @var string

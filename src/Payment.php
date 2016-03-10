@@ -171,14 +171,6 @@ class Payment
      * @var string
      */
     private $paymentMethodDescription;
-//    /**
-//     * @var bool
-//     */
-//    private $recurring = false;
-//    /**
-//     * @var int
-//     */
-//    private $previousInvoiceId;
     /**
      * @var bool
      */
@@ -271,8 +263,6 @@ class Payment
         if ($this->currency)           $params['OutSumCurrency']    = $this->currency;
         if ($this->paymentMethod)      $params['IncCurrLabel']      = $this->paymentMethod;
         if ($this->auth->isTest())     $params['isTest']            = 1;
-//        if ($this->recurring)          $params['Recurring']         = 1;
-//        if ($this->previousInvoiceId)  $params['PreviousInvoiceID'] = $this->previousInvoiceId;
         if ($this->customParams)       $params += $this->getCustomParamsArray();
 
         return $params;
@@ -665,46 +655,6 @@ class Payment
         return $this->paymentMethodDescription;
     }
 
-//    /**
-//     * @return bool
-//     */
-//    public function isRecurring()
-//    {
-//        return $this->recurring;
-//    }
-//
-//    /**
-//     * @param bool $recurring
-//     *
-//     * @return Payment
-//     */
-//    public function setRecurring($recurring)
-//    {
-//        $this->recurring = (bool)$recurring;
-//
-//        return $this;
-//    }
-//
-//    /**
-//     * @return int
-//     */
-//    public function getPreviousInvoiceId()
-//    {
-//        return $this->previousInvoiceId;
-//    }
-//
-//    /**
-//     * @param int $previousInvoiceId
-//     *
-//     * @return Payment
-//     */
-//    public function setPreviousInvoiceId($previousInvoiceId)
-//    {
-//        $this->previousInvoiceId = (int)$previousInvoiceId;
-//
-//        return $this;
-//    }
-
     /**
      * Returns whether the Robokassa query is valid.
      *
@@ -867,25 +817,21 @@ class Payment
     {
         if (strlen($name) > 6 && 0 === stripos($name, 'getshp')) {
 
-            // $payment->getShpKey('default value');
             $method = 'getCustomParam';
             $arguments = [substr($name, 6), isset($arguments[0]) ? $arguments[0] : null];
 
         } else if (strlen($name) > 6 && 0 === stripos($name, 'setshp') && count($arguments) === 1) {
 
-            // $payment->setShpKey('value');
             $method = 'setCustomParam';
             $arguments = [substr($name, 6), $arguments[0]];
 
         } else if (strlen($name) > 6 && 0 === stripos($name, 'hasshp')) {
 
-            // $payment->hasShpKey();
             $method = 'hasCustomParam';
             $arguments = [substr($name, 6)];
 
         } else if (strlen($name) > 9 && 0 === stripos($name, 'removeshp')) {
 
-            // $payment->removeShpKey();
             $method = 'removeCustomParam';
             $arguments = [substr($name, 9)];
 
