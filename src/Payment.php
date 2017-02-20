@@ -923,7 +923,7 @@ class Payment
         $this->set($data);
         $this->setId($data['InvId']);
 
-        $this->valid = $data['SignatureValue'] === $this->auth->getSignatureHash(
+        $this->valid = strcasecmp($data['SignatureValue'], $this->auth->getSignatureHash(
             '{os}:{ii}:{pp}{:cp}',
             [
                 'os' => $data['OutSum'],
@@ -931,7 +931,7 @@ class Payment
                 'pp' => $this->auth->{'get' . $passwordType . 'Password'}(),
                 'cp' => $this->getCustomParamsString(),
             ]
-        );
+        )) === 0;
 
         if ($this->valid && $strict) {
             try {
