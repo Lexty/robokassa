@@ -313,7 +313,7 @@ class PaymentTest extends TestCase
     public function set_expiration_date_as_string_in_custom_format()
     {
         $payment = $this->createPayment()->setExpirationDate('21.01.2016 20:10:43', 'd.m.Y H:i:s');
-        $this->assertEquals($payment->getExpirationDate()->format('c'), '2016-01-21T20:10:43+00:00');
+        $this->assertEquals($payment->getExpirationDate()->format('d.m.Y H:i:s'), '21.01.2016 20:10:43');
     }
 
     /**
