@@ -16,7 +16,7 @@
         "issues": "https://github.com/lexty/robokassa/issues"
     },
     "require": {
-        "php": ">=5.4.0",
+        "php": ">=7.0.0",
         "ext-curl": "*"
     },
     "require-dev": {
