@@ -102,6 +102,10 @@ class Payment
      */
     private $shopSum;
     /**
+     * @var array
+     */
+    private $receipt;
+    /**
      * The sum paid by the client, in units of currency Payment::$incCurrLabel.
      *
      * @var float
@@ -247,6 +251,7 @@ class Payment
             'MerchantLogin'  => $this->auth->getMerchantLogin(),
             'Description'    => $this->description,
             'SignatureValue' => $this->getPaymentSignatureHash(),
+            'Receipt' => $this->receipt,
         ];
 
         if ($defaultSum) {
@@ -283,11 +288,12 @@ class Payment
             throw new EmptySumException();
         }
 
-        return $this->auth->getSignatureValue('{ml}:{ss}:{ii}{:cr}:{pp}{:cp}', [
+        return $this->auth->getSignatureValue('{ml}:{ss}:{ii}{:cr}{:rc}:{pp}{:cp}', [
             'ml' => $this->auth->getMerchantLogin(),
             'ss' => $this->getShopSum(),
             'ii' => $this->id,
             'cr' => $this->currency,
+            'rc' => $this->receipt,
             'pp' => $this->auth->getPaymentPassword(),
             'cp' => $this->getCustomParamsString(),
         ]);
@@ -663,6 +669,19 @@ class Payment
     public function isValid()
     {
         return $this->valid;
+    }
+
+    /**
+     * Json string
+     *
+     * @param array $data
+     * @return Payment
+     */
+    public function setReceipt(string $data)
+    {
+        $this->receipt = $data;
+
+        return $this;
     }
 
     /**
