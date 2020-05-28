@@ -87,6 +87,35 @@ class PaymentTest extends TestCase
                 ->setCustomParam('name', 'John')
                 ->getPaymentSignature()
         );
+        $receipt = <<<JSON
+{
+  "sno": "osn",
+  "items": [
+    {
+      "name": "Product name 1",
+      "quantity": 1,
+      "sum": 100,
+      "tax": "vat10"
+    },
+    {
+      "name": "Product name 2",
+      "quantity": 3,
+      "sum": 450,
+      "tax": "vat118"
+    }
+  ]
+}
+JSON;
+        $this->assertEquals("login:123.00:6544321:USD:%7B%0A++%22sno%22%3A+%22osn%22%2C%0A++%22items%22%3A+%5B%0A++++%7B%0A++++++%22name%22%3A+%22Product+name+1%22%2C%0A++++++%22quantity%22%3A+1%2C%0A++++++%22sum%22%3A+100%2C%0A++++++%22tax%22%3A+%22vat10%22%0A++++%7D%2C%0A++++%7B%0A++++++%22name%22%3A+%22Product+name+2%22%2C%0A++++++%22quantity%22%3A+3%2C%0A++++++%22sum%22%3A+450%2C%0A++++++%22tax%22%3A+%22vat118%22%0A++++%7D%0A++%5D%0A%7D:{$this->pass1}:Shp_name=John:Shp_surname=Smith",
+            $this->createPayment()
+                ->setSum(123)
+                ->setId(6544321)
+                ->setCurrency('USD')
+                ->setCustomParam('surname', 'Smith')
+                ->setCustomParam('name', 'John')
+                ->setReceipt(urlencode($receipt))
+                ->getPaymentSignature()
+        );
     }
 
     /**

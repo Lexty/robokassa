@@ -674,6 +674,8 @@ class Payment
     /**
      * Json string
      *
+     * Should be URL encoded!
+     *
      * @param string $data
      * @return Payment
      */
