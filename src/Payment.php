@@ -102,7 +102,7 @@ class Payment
      */
     private $shopSum;
     /**
-     * @var array
+     * @var string
      */
     private $receipt;
     /**
