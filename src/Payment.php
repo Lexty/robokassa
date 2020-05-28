@@ -674,7 +674,7 @@ class Payment
     /**
      * Json string
      *
-     * @param array $data
+     * @param string $data
      * @return Payment
      */
     public function setReceipt(string $data)
